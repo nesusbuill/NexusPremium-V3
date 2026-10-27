@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0E0A"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="NEXUS PREMIUM"
+            android:textColor="#7CFFB2"
+            android:textStyle="bold"
+            android:textSize="28sp"
+            android:letterSpacing="0.2"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AI Trợ Lý Giải Trắc Nghiệm"
+            android:textColor="#88FFFFFF"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:paddingBottom="24dp" />
+
+        <TextView style="@style/SectionTitleStyle" android:text="TRẠNG THÁI QUYỀN" />
+
+        <LinearLayout style="@style/RowStyle">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Cửa sổ nổi (Overlay)"
+                android:textColor="#FFFFFF" />
+            <TextView android:id="@+id/statusOverlay" style="@style/StatusTextStyle" android:text="❌" />
+            <Button android:id="@+id/btnGrantOverlay" style="@style/GrantButtonStyle" android:text="CẤP" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/RowStyle">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Trợ năng (Accessibility)"
+                android:textColor="#FFFFFF" />
+            <TextView android:id="@+id/statusAccess" style="@style/StatusTextStyle" android:text="❌" />
+            <Button android:id="@+id/btnGrantAccess" style="@style/GrantButtonStyle" android:text="CẤP" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/RowStyle">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Thông báo"
+                android:textColor="#FFFFFF" />
+            <TextView android:id="@+id/statusNotif" style="@style/StatusTextStyle" android:text="❌" />
+            <Button android:id="@+id/btnGrantNotif" style="@style/GrantButtonStyle" android:text="CẤP" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/RowStyle">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Tắt tối ưu pin"
+                android:textColor="#FFFFFF" />
+            <TextView android:id="@+id/statusBattery" style="@style/StatusTextStyle" android:text="⚠️" />
+            <Button android:id="@+id/btnGrantBattery" style="@style/GrantButtonStyle" android:text="CẤP" />
+        </LinearLayout>
+
+        <TextView style="@style/SectionTitleStyle" android:text="ĐIỀU KHIỂN" />
+
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="▶  BẬT HUD"
+            android:textColor="#000000"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:background="@drawable/bg_btn_solve"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="■  TẮT HUD"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:background="@drawable/bg_btn_danger" />
+
+        <TextView style="@style/SectionTitleStyle" android:text="HƯỚNG DẪN XIAOMI HYPEROS" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Cài app → mở app → cấp đủ 4 quyền\n2. Cài đặt → Ứng dụng → Nexus → Tự khởi động (BẬT)\n3. Cài đặt → Ứng dụng → Nexus → Tiết kiệm pin → Không giới hạn\n4. Mở Đa nhiệm → vuốt Nexus xuống → khóa (ổ khóa)\n5. Mở app thi → HUD sẽ tự động giải"
+            android:textColor="#88FFFFFF"
+            android:textSize="12sp"
+            android:lineSpacingExtra="4dp"
+            android:paddingBottom="24dp" />
+
+    </LinearLayout>
+</ScrollView>
