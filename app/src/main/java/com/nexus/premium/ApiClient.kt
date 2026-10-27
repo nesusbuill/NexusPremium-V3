@@ -17,11 +17,10 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * ApiClient - Gọi Groq API giải trắc nghiệm.
  *
- * Chiến lược chống "chết model":
- *  - Chain 3 model, tự động fallback nếu model hiện tại lỗi 404 (deprecated) hoặc 429 (rate limit).
- *  - Multi-key rotation: xoay vòng 3 API key.
- *  - Exponential backoff khi lỗi mạng.
- *  - Parse JSON 3 tầng: raw → bóc markdown → regex.
+ * V4 CHANGES:
+ *  - Đọc API key từ ApiKeyStore (SharedPreferences) → user đổi key không cần build lại.
+ *  - Fallback về FALLBACK_KEYS nếu user chưa nhập.
+ *  - Vẫn giữ nguyên: model chain, multi-key rotation, parse 3 tầng.
  */
 object ApiClient {
 
@@ -29,7 +28,7 @@ object ApiClient {
 
     /**
      * CHAIN MODEL — Thứ tự ưu tiên.
-     * Nếu Groq khai tử 1 model, ApiClient tự nhảy sang model kế tiếp.
+     * Nếu Groq khai tử 1 model → tự nhảy sang model kế tiếp.
      */
     private val MODEL_CHAIN = listOf(
         "openai/gpt-oss-120b",
@@ -38,10 +37,10 @@ object ApiClient {
     )
 
     /**
-     * 🚨 THAY 3 API KEY GROQ TẠI ĐÂY 🚨
-     * Lấy tại: https://console.groq.com/keys
+     * FALLBACK KEYS — CHỈ DÙNG KHI user chưa nhập key trong app.
+     * Nếu user đã nhập key qua dialog → ApiKeyStore.getUserKeys() sẽ được ưu tiên.
      */
-    private val API_KEYS = listOf(
+    private val FALLBACK_KEYS = listOf(
         "gsk_KEY1_THAY_VAO_DAY",
         "gsk_KEY2_THAY_VAO_DAY",
         "gsk_KEY3_THAY_VAO_DAY"
@@ -77,7 +76,24 @@ YÊU CẦU ĐẦU RA: Chỉ trả về 1 đối tượng JSON duy nhất. Địn
 
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
+    /**
+     * ✅ Lấy danh sách key đang hoạt động.
+     * Ưu tiên: user keys (SharedPreferences) → fallback keys (hard-code).
+     */
+    private fun getActiveKeys(): List<String> {
+        val userKeys = ApiKeyStore.getUserKeys()
+        return if (userKeys.isNotEmpty()) userKeys else FALLBACK_KEYS
+    }
+
+    // ==================== API ====================
+
     suspend fun solve(question: String): String = withContext(Dispatchers.IO) {
+        // Check có key chưa
+        if (getActiveKeys().isEmpty()) {
+            NexusEvents.log("❌ Chưa có API key — mở app nhập key!")
+            return@withContext "?"
+        }
+
         for ((index, model) in MODEL_CHAIN.withIndex()) {
             NexusEvents.log("🤖 Thử model #${index + 1}: $model")
             val result = trySolveWithModel(model, question)
@@ -88,9 +104,19 @@ YÊU CẦU ĐẦU RA: Chỉ trả về 1 đối tượng JSON duy nhất. Địn
     }
 
     private suspend fun trySolveWithModel(model: String, question: String): String {
+        val keys = getActiveKeys()
+        if (keys.isEmpty()) {
+            NexusEvents.log("❌ Không có key nào khả dụng")
+            return "?"
+        }
+
         var lastError = ""
-        repeat(API_KEYS.size * 2) { attempt ->
+        repeat(keys.size * 2) { attempt ->
             val currentKey = getNextKey()
+            if (currentKey.isEmpty()) {
+                NexusEvents.log("❌ getNextKey() trả về rỗng")
+                return "?"
+            }
             try {
                 val result = callOnce(model, currentKey, question)
                 if (result != null) return result
@@ -110,7 +136,7 @@ YÊU CẦU ĐẦU RA: Chỉ trả về 1 đối tượng JSON duy nhất. Địn
                 delay(backoff)
             }
         }
-        NexusEvents.log("❌ $model: 6 lần đều thất bại ($lastError)")
+        NexusEvents.log("❌ $model: ${keys.size * 2} lần đều thất bại ($lastError)")
         return "?"
     }
 
@@ -174,9 +200,12 @@ YÊU CẦU ĐẦU RA: Chỉ trả về 1 đối tượng JSON duy nhất. Địn
         if (ans.length == 1 && ans[0] in "ABCD") ans else null
     } catch (e: Exception) { null }
 
+    /** ✅ getNextKey đọc từ danh sách key đang hoạt động (user keys hoặc fallback). */
     private suspend fun getNextKey(): String = keyLock.withLock {
-        val idx = keyIndex.getAndUpdate { (it + 1) % API_KEYS.size }
-        API_KEYS[idx]
+        val keys = getActiveKeys()
+        if (keys.isEmpty()) return@withLock ""
+        val idx = keyIndex.getAndUpdate { (it + 1) % keys.size }
+        keys[idx]
     }
 
     private class RateLimitException : Exception("429")
