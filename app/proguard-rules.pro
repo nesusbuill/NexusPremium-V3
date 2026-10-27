@@ -1,0 +1,5 @@
+-keep class com.nexus.premium.** { *; }
+-keep class org.json.** { *; }
+-keep class okhttp3.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
