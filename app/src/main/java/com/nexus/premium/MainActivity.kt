@@ -27,11 +27,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * MainActivity V4 - Bảng điều khiển trung tâm.
+ * MainActivity V4.1 - Bảng điều khiển trung tâm.
  *
- * 🆕 V4:
- *  - Nút "CẤU HÌNH API KEY" → dialog nhập 3 key Groq (lưu vào SharedPreferences)
- *  - Không cần build lại APK khi đổi key
+ * FIX V4.1:
+ *  - Đã BỎ lời gọi ApiClient.hasNoFallbackKey() → không còn phụ thuộc hàm đó.
+ *  - Logic chặn BẬT HUD: chỉ kiểm tra ApiKeyStore.hasAnyKey() (an toàn).
  */
 class MainActivity : AppCompatActivity() {
 
@@ -199,8 +199,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startHud() {
-        // Chặn nếu chưa có key
-        if (!ApiKeyStore.hasAnyKey() && ApiClient.hasNoFallbackKey()) {
+        // ✅ FIX: Chỉ check ApiKeyStore, KHÔNG gọi ApiClient.hasNoFallbackKey()
+        if (!ApiKeyStore.hasAnyKey()) {
             Toast.makeText(
                 this,
                 "⚠️ Chưa có API key! Bấm 'CẤU HÌNH API KEY' trước.",
