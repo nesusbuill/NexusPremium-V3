@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.NexusPremium" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#7CFFB2</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorSecondary">#5BCB8A</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="android:windowBackground">#0A0E0A</item>
+        <item name="android:statusBarColor">#0A0E0A</item>
+        <item name="android:navigationBarColor">#0A0E0A</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <style name="RowStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <style name="StatusTextStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#7CFFB2</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:paddingHorizontal">8dp</item>
+    </style>
+
+    <style name="GrantButtonStyle" parent="Widget.Material3.Button.TextButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:textColor">#7CFFB2</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:minWidth">64dp</item>
+    </style>
+
+    <style name="SectionTitleStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#7CFFB2</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:paddingTop">16dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+</resources>
