@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -28,7 +29,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * OverlayService - HUD cửa sổ nổi "kính mờ".
+ * OverlayService V4 - HUD kính mờ + Clamp + 2 panel mới.
+ *
+ * 🆕 V4:
+ *  - Clamp vị trí HUD trong màn hình (kể cả khi xoay)
+ *  - Scan preview panel (🔍 quét tầng sâu)
+ *  - Answer detail panel (📋 xem đáp án chi tiết)
  */
 class OverlayService : Service() {
 
@@ -40,6 +46,7 @@ class OverlayService : Service() {
         private const val CHANNEL_ID = "nexus_overlay_channel"
         private const val NOTIF_ID = 1001
         private const val DRAG_THRESHOLD = 10f
+        private const val MIN_VISIBLE_PX = 60  // Luôn giữ ít nhất 60px HUD trong màn hình
     }
 
     private lateinit var windowManager: WindowManager
@@ -54,6 +61,18 @@ class OverlayService : Service() {
     private lateinit var btnSolve: View
     private lateinit var fabClose: ImageButton
     private lateinit var btnCollapse: TextView
+
+    // 🆕 Refs 2 panel mới
+    private lateinit var scanPreviewPanel: View
+    private lateinit var scanQuestionText: TextView
+    private lateinit var scanOptionsText: TextView
+    private lateinit var scanFilteredText: TextView
+
+    private lateinit var answerDetailPanel: View
+    private lateinit var answerDetailText: TextView
+
+    private lateinit var btnToggleScan: TextView
+    private lateinit var btnToggleDetail: TextView
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -126,6 +145,7 @@ class OverlayService : Service() {
             y = 220
         }
 
+        // Bind views
         statusText = view.findViewById(R.id.statusText)
         answerText = view.findViewById(R.id.answerText)
         questionPreview = view.findViewById(R.id.questionPreview)
@@ -135,6 +155,17 @@ class OverlayService : Service() {
         fabClose = view.findViewById(R.id.fabClose)
         btnCollapse = view.findViewById(R.id.btnCollapse)
 
+        // 🆕 Bind 2 panel mới
+        scanPreviewPanel = view.findViewById(R.id.scanPreviewPanel)
+        scanQuestionText = view.findViewById(R.id.scanQuestionText)
+        scanOptionsText = view.findViewById(R.id.scanOptionsText)
+        scanFilteredText = view.findViewById(R.id.scanFilteredText)
+        answerDetailPanel = view.findViewById(R.id.answerDetailPanel)
+        answerDetailText = view.findViewById(R.id.answerDetailText)
+        btnToggleScan = view.findViewById(R.id.btnToggleScan)
+        btnToggleDetail = view.findViewById(R.id.btnToggleDetail)
+
+        // Drag
         dragHandle.setOnTouchListener(object : View.OnTouchListener {
             private var initX = 0
             private var initY = 0
@@ -161,11 +192,18 @@ class OverlayService : Service() {
                             try { windowManager.updateViewLayout(rootView, params) } catch (_: Exception) {}
                         }
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dragging = false
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        dragging = false
+                        clampHudToScreen()  // 🆕 Kéo xong → clamp
+                    }
                 }
                 return true
             }
         })
+
+        // Toggle panels
+        btnToggleScan.setOnClickListener { togglePanel(scanPreviewPanel, btnToggleScan) }
+        btnToggleDetail.setOnClickListener { togglePanel(answerDetailPanel, btnToggleDetail) }
 
         autoNextSwitch.isChecked = true
         autoNextSwitch.setOnCheckedChangeListener { _, checked ->
@@ -186,8 +224,57 @@ class OverlayService : Service() {
 
         btnCollapse.setOnClickListener { toggleCollapse() }
 
+        // 🆕 Clamp trước khi addView để chắc chắn hiện đúng trong màn hình
+        clampHudToScreenInitial()
+
         windowManager.addView(rootView, params)
+
+        // 🆕 Clamp lại sau khi measure (view.width/height đã có giá trị)
+        rootView?.post { clampHudToScreen() }
+
         NexusEvents.log("🪟 HUD hiển thị")
+    }
+
+    private fun togglePanel(panel: View, btn: TextView) {
+        val visible = panel.visibility == View.VISIBLE
+        panel.visibility = if (visible) View.GONE else View.VISIBLE
+        btn.alpha = if (visible) 0.5f else 1f
+        rootView?.post { clampHudToScreen() }
+    }
+
+    /**
+     * 🆕 Clamp vị trí HUD vào trong màn hình.
+     * Đảm bảo ít nhất MIN_VISIBLE_PX của HUD luôn hiển thị trên mỗi cạnh.
+     */
+    private fun clampHudToScreen() {
+        val view = rootView ?: return
+        val dm = resources.displayMetrics
+        val screenW = dm.widthPixels
+        val screenH = dm.heightPixels
+        val hudW = view.width.takeIf { it > 0 } ?: 300
+        val hudH = view.height.takeIf { it > 0 } ?: 400
+
+        // Giới hạn X: không cho HUD chui hoàn toàn ra trái/phải
+        params.x = params.x.coerceIn(-hudW + MIN_VISIBLE_PX, screenW - MIN_VISIBLE_PX)
+        // Giới hạn Y: không cho HUD chui lên trên hoặc xuống dưới màn hình
+        params.y = params.y.coerceIn(0, screenH - MIN_VISIBLE_PX)
+
+        try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
+    }
+
+    /** Clamp sớm trước khi view được đo (dùng giá trị mặc định). */
+    private fun clampHudToScreenInitial() {
+        val dm = resources.displayMetrics
+        val screenW = dm.widthPixels
+        val screenH = dm.heightPixels
+        params.x = params.x.coerceIn(0, screenW - MIN_VISIBLE_PX)
+        params.y = params.y.coerceIn(0, screenH - MIN_VISIBLE_PX)
+    }
+
+    /** 🆕 Khi xoay màn hình → clamp lại để HUD không bị đẩy ra ngoài. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        rootView?.post { clampHudToScreen() }
     }
 
     private fun toggleCollapse() {
@@ -197,10 +284,18 @@ class OverlayService : Service() {
         questionPreview.visibility = vis
         autoNextSwitch.visibility = vis
         btnSolve.visibility = vis
+        if (!collapsed) {
+            scanPreviewPanel.visibility = View.GONE
+            btnToggleScan.alpha = 0.5f
+            answerDetailPanel.visibility = View.GONE
+            btnToggleDetail.alpha = 0.5f
+        }
         btnCollapse.text = if (collapsed) "Thu nhỏ" else "Mở rộng"
+        rootView?.post { clampHudToScreen() }
     }
 
     private fun observeEvents() {
+        // Đáp án lớn
         scope.launch {
             NexusEvents.answers.collect { ev ->
                 answerText.text = ev.answer
@@ -213,8 +308,33 @@ class OverlayService : Service() {
                 )
             }
         }
+        // Status
         scope.launch {
             NexusEvents.status.collect { statusText.text = it }
+        }
+        // 🆕 Scan preview
+        scope.launch {
+            NexusEvents.scanPreviews.collect { ev ->
+                scanQuestionText.text = ev.question.take(200)
+                scanOptionsText.text = ev.options.entries.joinToString("\n") { (k, v) ->
+                    "$k. ${v.take(80)}"
+                }
+                scanFilteredText.text = "Đã lọc: ${ev.filteredCount} rác"
+            }
+        }
+        // 🆕 Answer detail
+        scope.launch {
+            NexusEvents.answerDetails.collect { ev ->
+                val detail = buildString {
+                    appendLine("❓ ${ev.question.take(250)}")
+                    appendLine()
+                    ev.options.forEach { (k, v) ->
+                        val marker = if (k == ev.answer) " ✅" else ""
+                        appendLine("$k. ${v.take(80)}$marker")
+                    }
+                }
+                answerDetailText.text = detail
+            }
         }
     }
 
