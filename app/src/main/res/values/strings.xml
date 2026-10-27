@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nexus Premium</string>
+    <string name="accessibility_label">Nexus Premium - Trợ lý giải đề</string>
+    <string name="accessibility_description">Nexus Premium cần quyền Trợ năng để đọc câu hỏi trên màn hình và tự động click đáp án. Dữ liệu xử lý cục bộ, không gửi lên server.</string>
+    <string name="close_hud">Đóng HUD</string>
+</resources>
