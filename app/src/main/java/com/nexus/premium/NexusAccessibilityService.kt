@@ -18,6 +18,13 @@ import kotlinx.coroutines.launch
 
 /**
  * NexusAccessibilityService - Trái tim của Nexus Premium.
+ *
+ * PIPELINE V4:
+ *   1. Deep scan leaf nodes (tầng sâu nhất) → tránh container chứa quảng cáo
+ *   2. Lọc rác: menu, banner, ad patterns, số trang...
+ *   3. Emit SCAN PREVIEW (hiện trên HUD để user kiểm tra)
+ *   4. Gọi AI → Emit ANSWER + ANSWER DETAIL
+ *   5. Gesture click đáp án + Auto-Next
  */
 class NexusAccessibilityService : AccessibilityService() {
 
@@ -31,6 +38,34 @@ class NexusAccessibilityService : AccessibilityService() {
 
         private val ANSWER_REGEX = Regex(
             """^\s*[\(\[]?([A-Da-d])[\)\]]?\s*[.):\-–—]\s*(.+)$"""
+        )
+
+        /**
+         * Pattern quảng cáo nhiều từ — dùng "contains" (an toàn, không nhầm câu hỏi).
+         * VD: "chính sách bảo mật" sẽ bị lọc, nhưng "bảo mật" đơn lẻ thì không.
+         */
+        private val AD_MULTI_PATTERNS = listOf(
+            "quảng cáo", "sponsored", "advertisement", "banner quảng cáo",
+            "click here", "mua ngay", "đặt hàng", "hotline:", "liên hệ:",
+            "khuyến mãi", "giảm giá", "giới thiệu về", "about us",
+            "chính sách bảo mật", "privacy policy", "điều khoản sử dụng",
+            "terms of service", "cookie policy", "google ads", "ads by",
+            "xem thêm bài viết", "đọc tiếp", "read more",
+            "tải ứng dụng", "download app", "cài đặt ứng dụng"
+        )
+
+        /**
+         * Menu/nav chính xác — chỉ lọc khi text == pattern (không lọc khi là substring).
+         * An toàn cho câu hỏi dài có chứa từ này.
+         */
+        private val NAV_EXACT = setOf(
+            "đăng nhập", "đăng ký", "trang chủ", "menu", "logout", "login",
+            "sign in", "sign up", "register",
+            "share", "chia sẻ", "báo cáo", "xem thêm", "tải app", "cài đặt",
+            "thoát", "quay lại", "back", "trang trước", "trang sau",
+            "search", "tìm kiếm", "close", "đóng", "next", "prev",
+            "trước", "sau", "chấp nhận", "từ chối", "accept", "reject",
+            "cancel", "ok", "hủy", "đồng ý"
         )
     }
 
@@ -69,18 +104,39 @@ class NexusAccessibilityService : AccessibilityService() {
 
     private suspend fun scanAndSolve() {
         val root = rootInActiveWindow ?: return
-        val extracted = extractQuiz(root) ?: return
+        val extracted = extractQuiz(root) ?: run {
+            NexusEvents.emitStatus("Không tìm thấy đề")
+            return
+        }
 
         val hash = extracted.question.hashCode()
         if (hash == lastQuestionHash) return
         lastQuestionHash = hash
 
+        // 🆕 Bắn scan preview NGAY để HUD hiện nội dung đã quét
+        NexusEvents.emitScanPreview(
+            ScanPreviewEvent(
+                question = extracted.questionText,
+                options = extracted.optionsText,
+                filteredCount = extracted.filteredCount
+            )
+        )
+
         NexusEvents.emitStatus("Đang giải...")
-        NexusEvents.log("📖 Câu hỏi: ${extracted.question.take(100)}")
+        NexusEvents.log("📖 Q: ${extracted.question.take(80)}")
 
         val answer = ApiClient.solve(extracted.question)
         NexusEvents.emitAnswer(extracted.question, answer)
         NexusEvents.emitStatus("Đáp án: $answer")
+
+        // 🆕 Bắn answer detail khi có đáp án
+        NexusEvents.emitAnswerDetail(
+            AnswerDetailEvent(
+                question = extracted.questionText,
+                options = extracted.optionsText,
+                answer = answer
+            )
+        )
 
         if (answer !in listOf("A", "B", "C", "D")) return
 
@@ -92,16 +148,33 @@ class NexusAccessibilityService : AccessibilityService() {
         if (autoNextEnabled) handler.postDelayed({ tryAutoNext() }, 500)
     }
 
+    /**
+     * Extract đề với DEEP SCAN.
+     * Chỉ lấy LEAF NODES (childCount == 0) — tầng sâu nhất của cây accessibility.
+     * Lý do: node cha thường gộp text quảng cáo + text nội dung → dễ nhiễu.
+     */
     private fun extractQuiz(root: AccessibilityNodeInfo): Extracted? {
-        val texts = mutableListOf<Pair<String, AccessibilityNodeInfo>>()
-        collectTexts(root, texts)
-        if (texts.size < 5) return null
+        val rawTexts = mutableListOf<Pair<String, AccessibilityNodeInfo>>()
+        collectLeafTexts(root, rawTexts)
+        if (rawTexts.size < 5) return null
 
-        val clean = texts
-            .map { it.first.trim() to it.second }
-            .filter { (t, _) -> t.isNotEmpty() && !isNoise(t) }
+        // Lọc rác + đếm số đã lọc để hiển thị "Đã lọc N rác"
+        var filteredCount = 0
+        val clean = mutableListOf<Pair<String, AccessibilityNodeInfo>>()
+        for ((text, node) in rawTexts) {
+            val trimmed = text.trim()
+            if (trimmed.isEmpty()) continue
+            if (isAdOrNoise(trimmed)) {
+                filteredCount++
+                continue
+            }
+            clean.add(trimmed to node)
+        }
+        if (clean.size < 5) return null
 
+        // Tìm 4 đáp án có prefix A/B/C/D
         val options = mutableMapOf<String, AccessibilityNodeInfo>()
+        val optionsText = mutableMapOf<String, String>()
         var firstOptionIdx = -1
 
         for ((idx, pair) in clean.withIndex()) {
@@ -109,18 +182,21 @@ class NexusAccessibilityService : AccessibilityService() {
             val letter = m.groupValues[1].uppercase()
             if (letter !in options) {
                 options[letter] = pair.second
+                optionsText[letter] = pair.first
                 if (firstOptionIdx == -1) firstOptionIdx = idx
             }
             if (options.size == 4) break
         }
 
+        // Fallback: 4 text cuối nếu không có prefix
         if (options.size < 4) {
             val tail = clean.takeLast(4)
             if (tail.size == 4) {
-                options["A"] = tail[0].second
-                options["B"] = tail[1].second
-                options["C"] = tail[2].second
-                options["D"] = tail[3].second
+                val letters = listOf("A", "B", "C", "D")
+                for (i in 0..3) {
+                    options[letters[i]] = tail[i].second
+                    optionsText[letters[i]] = tail[i].first
+                }
                 firstOptionIdx = clean.size - 4
             }
         }
@@ -133,41 +209,70 @@ class NexusAccessibilityService : AccessibilityService() {
 
         val fullQuestion = buildString {
             appendLine("Câu hỏi: $questionText")
-            options.toSortedMap().forEach { (letter, node) ->
-                val t = node.text?.toString()?.trim().orEmpty()
-                appendLine("$letter. $t")
+            optionsText.toSortedMap().forEach { (letter, text) ->
+                appendLine("$letter. $text")
             }
             append("Chọn đáp án đúng (chỉ trả về 1 chữ A/B/C/D).")
         }
 
-        return Extracted(fullQuestion, options)
+        return Extracted(
+            question = fullQuestion,
+            options = options,
+            optionsText = optionsText.toSortedMap(),
+            questionText = questionText,
+            filteredCount = filteredCount
+        )
     }
 
-    private fun collectTexts(
+    /**
+     * 🆕 DEEP SCAN — chỉ lấy leaf nodes (tầng sâu nhất).
+     * Tránh node cha chứa text quảng cáo + text nội dung trộn lẫn.
+     */
+    private fun collectLeafTexts(
         node: AccessibilityNodeInfo,
         out: MutableList<Pair<String, AccessibilityNodeInfo>>
     ) {
         val txt = node.text?.toString()?.trim().orEmpty()
         val desc = node.contentDescription?.toString()?.trim().orEmpty()
         val display = txt.ifEmpty { desc }
-        if (display.isNotEmpty() && display.length < 500) out.add(display to node)
+
+        // Chỉ nhận nếu là LEAF (không có con) hoặc không con nào có text
+        val isLeaf = node.childCount == 0 || !hasChildWithText(node)
+
+        if (display.isNotEmpty() && display.length < 500 && isLeaf) {
+            out.add(display to node)
+            return  // Đã nhận node cha (leaf thực sự) → không đệ quy tiếp
+        }
 
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            collectTexts(child, out)
+            collectLeafTexts(child, out)
         }
     }
 
-    private fun isNoise(t: String): Boolean {
+    private fun hasChildWithText(node: AccessibilityNodeInfo): Boolean {
+        for (i in 0 until node.childCount) {
+            val c = node.getChild(i) ?: continue
+            if (!c.text.isNullOrEmpty() || !c.contentDescription.isNullOrEmpty()) return true
+        }
+        return false
+    }
+
+    /** 🆕 Lọc quảng cáo + menu rác (an toàn cho câu hỏi dài). */
+    private fun isAdOrNoise(t: String): Boolean {
+        // Số trang "1/14", số trần
         if (Regex("""^\d+\s*/\s*\d+$""").matches(t)) return true
-        if (Regex("""^\d+$""").matches(t)) return true
-        val junk = listOf(
-            "đăng nhập", "đăng ký", "trang chủ", "menu", "logout", "login",
-            "share", "chia sẻ", "báo cáo", "xem thêm", "tải app", "cài đặt",
-            "thoát", "quay lại", "back", "trang trước", "trang sau"
-        )
-        val low = t.lowercase()
-        return junk.any { low == it || low.startsWith("$it ") }
+        if (Regex("""^\d{1,4}$""").matches(t)) return true
+
+        val low = t.lowercase().trim()
+
+        // Multi-word ad patterns (contains - an toàn)
+        if (AD_MULTI_PATTERNS.any { low.contains(it) }) return true
+
+        // Menu/nav chính xác (exact match - không lọc substring)
+        if (NAV_EXACT.contains(low)) return true
+
+        return false
     }
 
     private fun gestureClickNode(node: AccessibilityNodeInfo): Boolean {
@@ -235,6 +340,9 @@ class NexusAccessibilityService : AccessibilityService() {
 
     data class Extracted(
         val question: String,
-        val options: Map<String, AccessibilityNodeInfo>
+        val options: Map<String, AccessibilityNodeInfo>,
+        val optionsText: Map<String, String>,
+        val questionText: String,
+        val filteredCount: Int
     )
 }
