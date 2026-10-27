@@ -76,6 +76,20 @@
             <Button android:id="@+id/btnGrantBattery" style="@style/GrantButtonStyle" android:text="CẤP" />
         </LinearLayout>
 
+        <TextView style="@style/SectionTitleStyle" android:text="CẤU HÌNH" />
+
+        <!-- 🆕 NÚT CẤU HÌNH API KEY -->
+        <Button
+            android:id="@+id/btnApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🔑  CẤU HÌNH API KEY"
+            android:textColor="#7CFFB2"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:background="@drawable/bg_fab"
+            android:layout_marginBottom="12dp" />
+
         <TextView style="@style/SectionTitleStyle" android:text="ĐIỀU KHIỂN" />
 
         <Button
@@ -104,7 +118,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1. Cài app → mở app → cấp đủ 4 quyền\n2. Cài đặt → Ứng dụng → Nexus → Tự khởi động (BẬT)\n3. Cài đặt → Ứng dụng → Nexus → Tiết kiệm pin → Không giới hạn\n4. Mở Đa nhiệm → vuốt Nexus xuống → khóa (ổ khóa)\n5. Mở app thi → HUD sẽ tự động giải"
+            android:text="1. Cài app → mở app → nhập API key → cấp đủ 4 quyền\n2. Cài đặt → Ứng dụng → Nexus → Tự khởi động (BẬT)\n3. Cài đặt → Ứng dụng → Nexus → Tiết kiệm pin → Không giới hạn\n4. Mở Đa nhiệm → vuốt Nexus xuống → khóa (ổ khóa)\n5. Mở app thi → HUD sẽ tự động giải"
             android:textColor="#88FFFFFF"
             android:textSize="12sp"
             android:lineSpacingExtra="4dp"
