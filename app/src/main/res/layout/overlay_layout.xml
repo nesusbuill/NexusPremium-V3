@@ -7,8 +7,10 @@
     android:background="@drawable/bg_hud"
     android:padding="12dp"
     android:elevation="16dp"
-    android:minWidth="260dp">
+    android:minWidth="280dp"
+    android:maxWidth="340dp">
 
+    <!-- Drag handle + quick toggles -->
     <LinearLayout
         android:id="@+id/dragHandle"
         android:layout_width="match_parent"
@@ -28,15 +30,39 @@
             android:textSize="13sp"
             android:letterSpacing="0.15" />
 
+        <!-- Toggle Scan Preview -->
+        <TextView
+            android:id="@+id/btnToggleScan"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text="🔍"
+            android:textSize="16sp"
+            android:alpha="0.5"
+            android:background="?android:attr/selectableItemBackgroundBorderless" />
+
+        <!-- Toggle Answer Detail -->
+        <TextView
+            android:id="@+id/btnToggleDetail"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text="📋"
+            android:textSize="16sp"
+            android:alpha="0.5"
+            android:background="?android:attr/selectableItemBackgroundBorderless" />
+
         <TextView
             android:id="@+id/statusText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Sẵn sàng"
             android:textColor="#B0FFFFFF"
-            android:textSize="11sp" />
+            android:textSize="10sp"
+            android:paddingStart="4dp" />
     </LinearLayout>
 
+    <!-- Đáp án lớn -->
     <TextView
         android:id="@+id/answerText"
         android:layout_width="match_parent"
@@ -48,11 +74,12 @@
         android:textStyle="bold"
         android:background="@drawable/bg_answer" />
 
+    <!-- Preview câu hỏi gọn -->
     <TextView
         android:id="@+id/questionPreview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxLines="3"
+        android:maxLines="2"
         android:ellipsize="end"
         android:paddingTop="6dp"
         android:paddingHorizontal="4dp"
@@ -60,6 +87,91 @@
         android:textColor="#88FFFFFF"
         android:textSize="11sp" />
 
+    <!-- 🆕 SCAN PREVIEW PANEL -->
+    <LinearLayout
+        android:id="@+id/scanPreviewPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_scan_panel"
+        android:padding="8dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔍  QUÉT TẦNG SÂU"
+            android:textColor="#7CFFB2"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05" />
+
+        <TextView
+            android:id="@+id/scanQuestionText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="3"
+            android:ellipsize="end"
+            android:paddingTop="4dp"
+            android:text="—"
+            android:textColor="#CCFFFFFF"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/scanOptionsText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="5"
+            android:ellipsize="end"
+            android:paddingTop="4dp"
+            android:text="—"
+            android:textColor="#AAFFFFFF"
+            android:textSize="10sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:id="@+id/scanFilteredText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:text="Đã lọc: 0 rác"
+            android:textColor="#667CFFB2"
+            android:textSize="9sp" />
+    </LinearLayout>
+
+    <!-- 🆕 ANSWER DETAIL PANEL -->
+    <LinearLayout
+        android:id="@+id/answerDetailPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_answer_detail"
+        android:padding="8dp"
+        android:layout_marginTop="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📋  CHI TIẾT ĐÁP ÁN"
+            android:textColor="#7CFFB2"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05" />
+
+        <TextView
+            android:id="@+id/answerDetailText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:text="Chưa có đáp án"
+            android:textColor="#DDDDDD"
+            android:textSize="11sp"
+            android:lineSpacingExtra="2dp" />
+    </LinearLayout>
+
+    <!-- Điều khiển -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -88,6 +200,7 @@
             android:paddingHorizontal="18dp" />
     </LinearLayout>
 
+    <!-- FAB đóng 75dp -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
